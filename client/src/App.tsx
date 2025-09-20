@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/auth/Auth";
+import ForgotPassword from "./pages/auth/ForgotPassword";
 import Designer from "./pages/Designer";
 import NotFound from "./pages/NotFound";
 
@@ -19,6 +20,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/designer" element={<Designer />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

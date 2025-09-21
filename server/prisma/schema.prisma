@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(uuid()) @map("user_id")
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  username   String   @unique @map("username")
+  email      String   @unique @map("email_address")
+  password   String   @map("password")
+  avatar     String?  @map("profile_pic")
+  dateJoined DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  isDeleted  Boolean  @default(false) @map("is_deleted")
+  verified   Boolean  @default(false) @map("is_verified")
+  isAdmin    Boolean  @default(false) @map("is_admin")
+
+  @@map("user")
+}

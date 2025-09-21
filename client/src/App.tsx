@@ -8,6 +8,9 @@ import Auth from "./pages/auth/Auth";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import Designer from "./pages/Designer";
 import NotFound from "./pages/NotFound";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import FreelancerDashboard from "./pages/dashboard/Freelancer";
+import BuyerDashboard from "./pages/dashboard/Buyer";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +24,9 @@ const App = () => (
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="admin" element={<AdminDashboard />} />
+          <Route path="freelancer" element={<FreelancerDashboard />} />
+          <Route path="user" element={<BuyerDashboard />} />
           <Route path="/designer" element={<Designer />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

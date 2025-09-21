@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "../services/mailer";
@@ -16,7 +16,7 @@ const client = new PrismaClient();
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, username, password } = req.body;
+    const { firstName, lastName, email, username, password, role } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await client.user.create({
       data: {
@@ -26,6 +26,7 @@ export const register = async (req: Request, res: Response) => {
         username,
         password: hashedPassword,
         verified: false,
+        role: String(role).toLowerCase() === "freelancer" ? Role.FREELANCER : Role.BUYER,
       },
     });
     if (!process.env.JWT_SECRET) {
@@ -49,6 +50,14 @@ export const register = async (req: Request, res: Response) => {
       !process.env.SMTP_PASS ||
       !process.env.FROM_EMAIL
     ) {
+      if (process.env.NODE_ENV !== "production") {
+        res.status(201).json({
+          message:
+            "Registration successful! Email service is not configured; use the activation link to activate your account.",
+          activationLink,
+        });
+        return;
+      }
       res.status(500).json({ message: "Email service not configured." });
       return;
     }
@@ -85,7 +94,7 @@ export const activateAccount = async (req: Request, res: Response) => {
       return;
     }
     if (user.verified) {
-      res.status(500).json({ message: "Account already activated." });
+      res.status(200).json({ message: "Account already activated." });
       return;
     }
     if (!process.env.JWT_SECRET) {
@@ -122,11 +131,8 @@ export const activateAccount = async (req: Request, res: Response) => {
           // fail silently; activation should not be blocked by email issues
         }
       }
-      const frontendUrl =
-        process.env.FRONTEND_URL ||
-        process.env.CLIENT_URL ||
-        "http://localhost:5173";
-      res.redirect(`${frontendUrl}/login?activated=1`);
+      // Return JSON so the SPA can handle navigation client-side
+      res.status(200).json({ message: "Account activated successfully." });
       return;
     } catch (e) {
       res.status(400).json({ message: "Invalid or expired activation link." });
@@ -277,6 +283,14 @@ export const forgotPassword = async (req: Request, res: Response) => {
       !process.env.SMTP_PASS ||
       !process.env.FROM_EMAIL
     ) {
+      if (process.env.NODE_ENV !== "production") {
+        res.status(200).json({
+          message:
+            "Password reset email service is not configured; use the reset link to change your password.",
+          resetLink: link,
+        });
+        return;
+      }
       res.status(500).json({ message: "Email service not configured." });
       return;
     }
@@ -420,6 +434,14 @@ export const resendActivation = async (req: Request, res: Response) => {
       !process.env.SMTP_PASS ||
       !process.env.FROM_EMAIL
     ) {
+      if (process.env.NODE_ENV !== "production") {
+        res.status(200).json({
+          message:
+            "Activation email service is not configured; use the activation link below to activate your account.",
+          activationLink,
+        });
+        return;
+      }
       res.status(500).json({ message: "Email service not configured." });
       return;
     }

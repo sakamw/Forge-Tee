@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { isAxiosError } from "axios";
 import {
   Palette,
   User,
@@ -10,17 +11,28 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { registerApi, loginApi } from "../../api/axios";
+import { useAuthStore } from "../../store/useAuthStore";
+import { toast } from "../../components/ui/sonner";
 
 interface FormData {
-  name: string;
-  email: string;
+  // Sign in
+  identifier: string; // email or username
   password: string;
+  // Sign up
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
   confirmPassword: string;
   role: "buyer" | "freelancer";
 }
 
 interface FormErrors {
-  name?: string;
+  identifier?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
@@ -29,6 +41,7 @@ interface FormErrors {
 
 export default function Auth() {
   const navigate = useNavigate();
+  const { login } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -37,9 +50,12 @@ export default function Auth() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const [formData, setFormData] = useState<FormData>({
-    name: "",
-    email: "",
+    identifier: "",
     password: "",
+    firstName: "",
+    lastName: "",
+    username: "",
+    email: "",
     confirmPassword: "",
     role: "buyer",
   });
@@ -74,29 +90,32 @@ export default function Auth() {
   const validateForm = (type: "signin" | "signup"): boolean => {
     const newErrors: FormErrors = {};
 
-    // Email validation
-    if (!formData.email) {
-      newErrors.email = "Email is required";
-    } else if (!isValidEmail(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    // Password validation
-    if (!formData.password) {
-      newErrors.password = "Password is required";
-    } else if (type === "signup") {
-      const passwordValidation = validatePassword(formData.password);
-      if (!passwordValidation.isValid) {
-        newErrors.password = passwordValidation.message;
+    if (type === "signin") {
+      if (!formData.identifier.trim()) {
+        newErrors.identifier = "Email or username is required";
       }
-    }
+      if (!formData.password) {
+        newErrors.password = "Password is required";
+      }
+    } else {
+      // signup
+      if (!formData.firstName.trim()) newErrors.firstName = "First name is required";
+      if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
+      if (!formData.username.trim()) newErrors.username = "Username is required";
 
-    // Signup-specific validation
-    if (type === "signup") {
-      if (!formData.name.trim()) {
-        newErrors.name = "Full name is required";
-      } else if (formData.name.trim().length < 2) {
-        newErrors.name = "Name must be at least 2 characters long";
+      if (!formData.email) {
+        newErrors.email = "Email is required";
+      } else if (!isValidEmail(formData.email)) {
+        newErrors.email = "Please enter a valid email address";
+      }
+
+      if (!formData.password) {
+        newErrors.password = "Password is required";
+      } else {
+        const passwordValidation = validatePassword(formData.password);
+        if (!passwordValidation.isValid) {
+          newErrors.password = passwordValidation.message;
+        }
       }
 
       if (!formData.confirmPassword) {
@@ -120,59 +139,112 @@ export default function Auth() {
     setSuccessMessage("");
 
     try {
-      // Simulate API call with potential error
-      await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Simulate occasional server errors for demonstration
-          if (Math.random() < 0.1) {
-            reject(
-              new Error("Server temporarily unavailable. Please try again.")
-            );
-            return;
-          }
+      if (type === "signup") {
+        await registerApi({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        });
 
-          // Simulate existing email for signup
-          if (type === "signup" && formData.email === "existing@example.com") {
-            reject(new Error("An account with this email already exists"));
-            return;
-          }
+        setSuccessMessage(
+          "Registration successful! Please check your email to activate your account."
+        );
+        // Send user to activation instructions with email in query
+        navigate(
+          `/activation-instructions?email=${encodeURIComponent(formData.email)}`
+        );
+        return;
+      }
 
-          // Simulate invalid credentials for signin
-          if (type === "signin" && formData.email === "invalid@example.com") {
-            reject(new Error("Invalid email or password"));
-            return;
-          }
-
-          resolve(true);
-        }, 1500);
+      // Sign in
+      const userDetails = await loginApi({
+        identifier: formData.identifier,
+        password: formData.password,
       });
 
-      const user = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: formData.name || "John Doe",
-        email: formData.email,
-        role: formData.role,
-        createdAt: new Date().toISOString(),
-      };
+      setSuccessMessage("Welcome back!");
 
-      const message =
-        type === "signup"
-          ? `Account created successfully! Welcome to TeeCustom, ${user.name}!`
-          : `Welcome back, ${user.name}!`;
+      // Redirect logic based on server-provided role (not form state)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isAdmin = (userDetails as any)?.isAdmin === true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const serverRoleRaw = ((userDetails as any)?.role ?? "").toString().toLowerCase();
+      const resolvedRole: "buyer" | "freelancer" | "admin" = isAdmin
+        ? "admin"
+        : serverRoleRaw === "freelancer"
+        ? "freelancer"
+        : "buyer";
 
-      setSuccessMessage(message);
+      // Persist auth state for protected routes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const first = (userDetails as any)?.firstName as string | undefined;
+      const last = (userDetails as any)?.lastName as string | undefined;
+      const username = (userDetails as any)?.username as string | undefined;
+      const fullName = [first, last].filter(Boolean).join(" ");
+      login({
+        id: String((userDetails as any)?.id || ""),
+        name: fullName || String(username || "User"),
+        email: String((userDetails as any)?.email || formData.identifier || ""),
+        role: resolvedRole,
+        avatar: (userDetails as any)?.avatar || undefined,
+        createdAt: String((userDetails as any)?.dateJoined || new Date().toISOString()),
+      });
+      const displayName = (fullName || username || "there") as string;
+      toast.success(`Welcome back, ${displayName}!`);
 
-      // In a real app, you would redirect based on role here
-      console.log("User logged in:", user);
-      console.log(
-        `Redirecting to: ${
-          user.role === "freelancer" ? "/seller-dashboard" : "/dashboard"
-        }`
-      );
+      // Determine destination based on resolved role
+      const destination =
+        resolvedRole === "admin"
+          ? "/admin"
+          : resolvedRole === "freelancer"
+          ? "/freelancer"
+          : "/user";
+      const destLabel =
+        resolvedRole === "admin"
+          ? "Admin dashboard"
+          : resolvedRole === "freelancer"
+          ? "Freelancer dashboard"
+          : "Buyer dashboard";
+      toast.info(`Redirecting to your ${destLabel}...`);
+      setTimeout(() => {
+        navigate(destination);
+      }, 1500);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      setErrors({ general: errorMessage });
+      let friendly = "Something went wrong. Please try again.";
+      if (isAxiosError(error)) {
+        const status = error.response?.status;
+        const serverMsg = (error.response?.data as { message?: string } | undefined)?.message;
+        if (type === "signin") {
+          if (status === 0 || !status) {
+            friendly = "Unable to reach the server. Please check your internet connection and try again.";
+          } else if (status === 400) {
+            friendly = serverMsg || "Invalid email/username or password.";
+          } else if (status === 403) {
+            friendly = serverMsg || "Your account is not activated yet. Please check your email for the activation link.";
+          } else if (status && status >= 500) {
+            friendly = "Server error. Please try again in a moment.";
+          } else {
+            friendly = serverMsg || "Sign in failed. Please try again.";
+          }
+        } else {
+          // signup
+          if (status === 0 || !status) {
+            friendly = "Unable to reach the server. Please check your internet connection and try again.";
+          } else if (status === 400) {
+            friendly = serverMsg || "Email or username already in use, or password too weak.";
+          } else if (status && status >= 500) {
+            friendly = serverMsg || "Server error during registration. Please try again later.";
+          } else {
+            friendly = serverMsg || "Registration failed. Please review your details and try again.";
+          }
+        }
+      } else if (error instanceof Error) {
+        friendly = error.message;
+      }
+      setErrors({ general: friendly });
     } finally {
       setIsLoading(false);
     }
@@ -231,11 +303,11 @@ export default function Auth() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="flex items-center justify-center space-x-2 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center shadow-lg">
+          <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg">
             <Palette className="w-6 h-6 text-white" />
           </div>
-          <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            TeeCustom
+          <span className="text-2xl font-bold gradient-primary bg-clip-text text-transparent">
+            Custom Tee
           </span>
         </div>
 
@@ -293,31 +365,37 @@ export default function Auth() {
 
           {/* Sign In Form */}
           {activeTab === "signin" && (
-            <div className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit("signin");
+              }}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <label
-                  htmlFor="signin-email"
+                  htmlFor="signin-identifier"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  Email
+                  Email or Username
                 </label>
                 <input
-                  id="signin-email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  id="signin-identifier"
+                  type="text"
+                  placeholder="Enter your email or username"
+                  value={formData.identifier}
+                  onChange={(e) => handleInputChange("identifier", e.target.value)}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
-                    errors.email
+                    errors.identifier
                       ? "border-red-500"
                       : "border-gray-300 dark:border-gray-600"
                   }`}
                   required
                 />
-                {errors.email && (
+                {errors.identifier && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
-                    {errors.email}
+                    {errors.identifier}
                   </p>
                 )}
               </div>
@@ -376,42 +454,89 @@ export default function Auth() {
               </div>
 
               <button
-                onClick={() => handleSubmit("signin")}
+                type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-2 px-4 rounded-md font-medium transition-all duration-200 disabled:cursor-not-allowed"
+                className="w-full gradient-primary hover:opacity-90 disabled:opacity-50 text-white py-2 px-4 rounded-md font-medium transition-all duration-200 disabled:cursor-not-allowed"
               >
                 {isLoading ? "Signing in..." : "Sign In"}
               </button>
-            </div>
+            </form>
           )}
 
           {/* Sign Up Form */}
           {activeTab === "signup" && (
-            <div className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit("signup");
+              }}
+              className="space-y-4"
+            >
               <div className="space-y-2">
-                <label
-                  htmlFor="name"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Full Name
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  First Name
                 </label>
                 <input
-                  id="name"
+                  id="first-name"
                   type="text"
-                  placeholder="Enter your full name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  placeholder="Enter your first name"
+                  value={formData.firstName}
+                  onChange={(e) => handleInputChange("firstName", e.target.value)}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
-                    errors.name
-                      ? "border-red-500"
-                      : "border-gray-300 dark:border-gray-600"
+                    errors.firstName ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                   }`}
                   required
                 />
-                {errors.name && (
+                {errors.firstName && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
-                    {errors.name}
+                    {errors.firstName}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Last Name
+                </label>
+                <input
+                  id="last-name"
+                  type="text"
+                  placeholder="Enter your last name"
+                  value={formData.lastName}
+                  onChange={(e) => handleInputChange("lastName", e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
+                    errors.lastName ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  }`}
+                  required
+                />
+                {errors.lastName && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.lastName}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  placeholder="Choose a username"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange("username", e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
+                    errors.username ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  }`}
+                  required
+                />
+                {errors.username && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.username}
                   </p>
                 )}
               </div>
@@ -588,13 +713,13 @@ export default function Auth() {
               </div>
 
               <button
-                onClick={() => handleSubmit("signup")}
+                type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-2 px-4 rounded-md font-medium transition-all duration-200 disabled:cursor-not-allowed"
+                className="w-full gradient-primary hover:opacity-90 disabled:opacity-50 text-white py-2 px-4 rounded-md font-medium transition-all duration-200 disabled:cursor-not-allowed"
               >
                 {isLoading ? "Creating account..." : "Create Account"}
               </button>
-            </div>
+            </form>
           )}
 
           <div className="mt-6 text-center">

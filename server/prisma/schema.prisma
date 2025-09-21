@@ -20,6 +20,12 @@ model User {
   isDeleted  Boolean  @default(false) @map("is_deleted")
   verified   Boolean  @default(false) @map("is_verified")
   isAdmin    Boolean  @default(false) @map("is_admin")
+  role       Role     @default(BUYER) @map("role")
 
   @@map("user")
+}
+
+enum Role {
+  BUYER
+  FREELANCER
 }

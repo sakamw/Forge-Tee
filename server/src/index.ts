@@ -29,7 +29,7 @@ app.get("/", (_req: any, res: { send: (arg0: string) => void }) => {
   res.send("<h1>Welcome to CustomTee Platform");
 });
 
-const port = process.env.PORT || 4300;
+const port = process.env.PORT || 4301;
 console.log(`App running on port ${port}`);
 app.use(errorHandler);
 app.listen(port);

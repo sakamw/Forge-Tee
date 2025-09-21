@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 import {
   Card,
@@ -24,29 +24,64 @@ import {
   Eye,
   ShoppingBag,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { logoutApi } from "../../api/axios";
 
 const FreelancerDashboard = () => {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
-  if (user?.role !== "freelancer") {
-    return (
-      <div className="p-8 text-center">
-        Access denied. Freelancer account required.
-      </div>
-    );
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast.info("Please sign in to access the Freelancer dashboard.");
+      navigate("/auth");
+      return;
+    }
+    if (user && user.role !== "freelancer") {
+      const destination = user.role === "admin" ? "/admin" : "/user";
+      toast.info(
+        user.role === "admin"
+          ? "Redirecting to the Admin dashboard."
+          : "Redirecting to the Buyer dashboard."
+      );
+      navigate(destination);
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  if (!isAuthenticated || (user && user.role !== "freelancer")) {
+    return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
   }
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Freelancer Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your designs and track your earnings
-          </p>
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Freelancer Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your designs and track your earnings
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await logoutApi();
+              } catch {
+                // ignore
+              } finally {
+                logout();
+                toast.success("You have been logged out.");
+                navigate("/auth");
+              }
+            }}
+          >
+            Logout
+          </Button>
         </div>
 
         <Tabs

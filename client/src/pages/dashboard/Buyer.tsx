@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 import {
   Card,
@@ -25,30 +25,65 @@ import {
   User,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { logoutApi } from "../../api/axios";
 
 const BuyerDashboard = () => {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("marketplace");
 
-  if (user?.role !== "buyer") {
-    return (
-      <div className="p-8 text-center">
-        Access denied. Buyer account required.
-      </div>
-    );
+  useEffect(() => {
+    // Not logged in -> go to auth with friendly message
+    if (!isAuthenticated) {
+      toast.info("Please sign in to access your dashboard.");
+      navigate("/auth");
+      return;
+    }
+    // Logged in but not buyer -> redirect to their role dashboard
+    if (user && user.role !== "buyer") {
+      const destination = user.role === "admin" ? "/admin" : "/freelancer";
+      toast.info(
+        user.role === "admin"
+          ? "Redirecting to the Admin dashboard."
+          : "Redirecting to the Freelancer dashboard."
+      );
+      navigate(destination);
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  if (!isAuthenticated || (user && user.role !== "buyer")) {
+    return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
   }
 
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Buyer Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            Discover amazing designs and customize your perfect T-shirt
-          </p>
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Buyer Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              Discover amazing designs and customize your perfect T-shirt
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await logoutApi();
+              } catch {
+                // ignore network errors on logout
+              } finally {
+                logout();
+                toast.success("You have been logged out.");
+                navigate("/auth");
+              }
+            }}
+          >
+            Logout
+          </Button>
         </div>
 
         <Tabs

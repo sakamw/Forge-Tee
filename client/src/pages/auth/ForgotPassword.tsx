@@ -11,22 +11,26 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { toast } from "sonner";
+import { forgotPasswordApi } from "../../api/axios";
 
 const ForgotPassword: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleReset = (e: React.FormEvent) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Simulate API call for password reset
-    setTimeout(() => {
+    try {
+      await forgotPasswordApi({ email });
       toast.success("Password reset link has been sent to your email.");
+      navigate("/auth");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to request reset.";
+      toast.error(message);
+    } finally {
       setIsLoading(false);
-      navigate("/");
-    }, 1500);
+    }
   };
 
   return (

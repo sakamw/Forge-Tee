@@ -1,16 +1,19 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/auth/Auth";
 import ForgotPassword from "./pages/auth/ForgotPassword";
-import Designer from "./pages/Designer";
-import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/auth/ResetPassword";
+import ActivateAccount from "./pages/auth/ActivateAccount";
+import ActivationInstructions from "./pages/auth/ActivationInstructions";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import FreelancerDashboard from "./pages/dashboard/Freelancer";
 import BuyerDashboard from "./pages/dashboard/Buyer";
+import Designer from "./pages/Designer";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -18,15 +21,22 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner position="top-right" />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="admin" element={<AdminDashboard />} />
-          <Route path="freelancer" element={<FreelancerDashboard />} />
-          <Route path="user" element={<BuyerDashboard />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/activate/:id/:token" element={<ActivateAccount />} />
+          <Route
+            path="/activation-instructions"
+            element={<ActivationInstructions />}
+          />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/freelancer" element={<FreelancerDashboard />} />
+          <Route path="/user" element={<BuyerDashboard />} />
           <Route path="/designer" element={<Designer />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

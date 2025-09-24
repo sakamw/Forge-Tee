@@ -23,9 +23,28 @@ model User {
   role       Role     @default(BUYER) @map("role")
 
   @@map("user")
+  FreelancerApplication FreelancerApplication[]
 }
 
 enum Role {
   BUYER
   FREELANCER
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model FreelancerApplication {
+  id        String             @id @default(uuid())
+  user      User               @relation(fields: [userId], references: [id])
+  userId    String             @unique
+  status    ApplicationStatus  @default(PENDING)
+  notes     String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@map("freelancer_application")
 }

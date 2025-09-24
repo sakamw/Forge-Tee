@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient, Role } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "../services/mailer";
@@ -26,9 +26,18 @@ export const register = async (req: Request, res: Response) => {
         username,
         password: hashedPassword,
         verified: false,
-        role: String(role).toLowerCase() === "freelancer" ? Role.FREELANCER : Role.BUYER,
       },
     });
+    // If user selected freelancer at signup, record an application (pending)
+    if (String(role).toLowerCase() === "freelancer") {
+      try {
+        await client.freelancerApplication.create({
+          data: { userId: user.id },
+        });
+      } catch (e) {
+        // ignore if already exists or before migration
+      }
+    }
     if (!process.env.JWT_SECRET) {
       res.status(500).json({ message: "Server configuration error." });
       return;
@@ -131,7 +140,6 @@ export const activateAccount = async (req: Request, res: Response) => {
           // fail silently; activation should not be blocked by email issues
         }
       }
-      // Return JSON so the SPA can handle navigation client-side
       res.status(200).json({ message: "Account activated successfully." });
       return;
     } catch (e) {

@@ -149,3 +149,60 @@ export function passwordChangedEmailHtml(params: {
     `,
   });
 }
+
+export function freelancerApplicationReceivedEmailHtml(params: {
+  appName?: string;
+  firstName?: string;
+}): string {
+  const greeting = params.firstName ? `Hi ${params.firstName},` : "Hello,";
+  return baseTemplate({
+    appName: params.appName ?? "CustomTee",
+    headline: "We received your freelancer application",
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">${greeting}</p>
+      <p style="margin:0 0 12px 0;">Thanks for applying to become a freelancer on <strong>${
+        params.appName ?? "CustomTee"
+      }</strong>.</p>
+      <p style="margin:0 0 12px 0;">Our team will review your application shortly. You'll receive an email as soon as a decision is made.</p>
+      <p style="margin:0;">No further action is needed from you right now.</p>
+    `,
+  });
+}
+
+export function freelancerApplicationApprovedEmailHtml(params: {
+  appName?: string;
+  firstName?: string;
+  dashboardUrl?: string;
+}): string {
+  const greeting = params.firstName ? `Hi ${params.firstName},` : "Hello,";
+  return baseTemplate({
+    appName: params.appName ?? "CustomTee",
+    headline: "Your freelancer account is verified",
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">${greeting}</p>
+      <p style="margin:0 0 12px 0;">Great news — your freelancer application has been <strong>approved</strong>!</p>
+      <p style="margin:0 0 12px 0;">You can now access your freelancer dashboard to start posting designs and managing your portfolio.</p>
+    `,
+    ctaLabel: "Go to dashboard",
+    ctaHref: params.dashboardUrl ?? "",
+  });
+}
+
+export function freelancerApplicationRejectedEmailHtml(params: {
+  appName?: string;
+  firstName?: string;
+}): string {
+  const greeting = params.firstName ? `Hi ${params.firstName},` : "Hello,";
+  return baseTemplate({
+    appName: params.appName ?? "CustomTee",
+    headline: "Your freelancer application status",
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">${greeting}</p>
+      <p style="margin:0 0 12px 0;">Thanks for your interest in becoming a freelancer on <strong>${
+        params.appName ?? "CustomTee"
+      }</strong>.</p>
+      <p style="margin:0 0 12px 0;">After careful review, we’re unable to approve your application at this time. You’re welcome to improve your profile and apply again in the future.</p>
+      <p style="margin:0;">If you believe this was a mistake, feel free to reply to this email.</p>
+    `,
+  });
+}

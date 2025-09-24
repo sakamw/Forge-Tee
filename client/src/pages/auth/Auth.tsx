@@ -11,7 +11,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { registerApi, loginApi } from "../../api/axios";
+import { registerApi, loginApi, getMyApplicationApi } from "../../api/axios";
 import { useAuthStore } from "../../store/useAuthStore";
 import { toast } from "../../components/ui/sonner";
 
@@ -195,19 +195,26 @@ export default function Auth() {
       const displayName = (fullName || username || "there") as string;
       toast.success(`Welcome back, ${displayName}!`);
 
-      // Determine destination based on resolved role
-      const destination =
-        resolvedRole === "admin"
-          ? "/admin"
-          : resolvedRole === "freelancer"
-          ? "/freelancer"
-          : "/user";
-      const destLabel =
-        resolvedRole === "admin"
-          ? "Admin dashboard"
-          : resolvedRole === "freelancer"
-          ? "Freelancer dashboard"
-          : "Buyer dashboard";
+      // Determine destination based on resolved role; if buyer, check freelancer application state
+      let destination = "/user";
+      let destLabel = "Buyer dashboard";
+      if (resolvedRole === "admin") {
+        destination = "/admin";
+        destLabel = "Admin dashboard";
+      } else if (resolvedRole === "freelancer") {
+        destination = "/freelancer";
+        destLabel = "Freelancer dashboard";
+      } else {
+        // role is BUYER; check if there's a pending freelancer application
+        try {
+          const app = await getMyApplicationApi();
+          if (app.status === "PENDING") {
+            toast.info("Your freelancer application is pending admin approval. You'll be upgraded once approved.");
+          }
+        } catch {
+          // ignore
+        }
+      }
       toast.info(`Redirecting to your ${destLabel}...`);
       setTimeout(() => {
         navigate(destination);

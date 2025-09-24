@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 import {
@@ -26,21 +27,20 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { logoutApi } from "../../api/axios";
+import { logoutApi, getBuyerOrdersApi } from "../../api/axios";
 
 const BuyerDashboard = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("marketplace");
+  const [orders, setOrders] = useState<any[] | null>(null);
 
   useEffect(() => {
-    // Not logged in -> go to auth with friendly message
     if (!isAuthenticated) {
       toast.info("Please sign in to access your dashboard.");
       navigate("/auth");
       return;
     }
-    // Logged in but not buyer -> redirect to their role dashboard
     if (user && user.role !== "buyer") {
       const destination = user.role === "admin" ? "/admin" : "/freelancer";
       toast.info(
@@ -50,10 +50,21 @@ const BuyerDashboard = () => {
       );
       navigate(destination);
     }
+    // Fetch buyer orders for the Orders tab
+    (async () => {
+      try {
+        const data = await getBuyerOrdersApi();
+        setOrders(data.orders || []);
+      } catch {
+        setOrders([]);
+      }
+    })();
   }, [isAuthenticated, user, navigate]);
 
   if (!isAuthenticated || (user && user.role !== "buyer")) {
-    return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
+    return (
+      <div className="p-8 text-center text-muted-foreground">Loading...</div>
+    );
   }
 
   return (
@@ -213,74 +224,57 @@ const BuyerDashboard = () => {
                   <div className="text-2xl font-bold">19</div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Total Spent
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">$487</div>
-                </CardContent>
-              </Card>
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle>Order History</CardTitle>
+                <CardTitle>My Orders</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Track your recent purchases and order status
+                </p>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((order) => (
-                    <div
-                      key={order}
-                      className="flex items-center gap-4 p-4 border rounded-lg"
-                    >
-                      <div className="w-16 h-16 bg-muted rounded"></div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">
-                          Order #ORD-{1000 + order}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          Custom T-shirt - Summer Vibes {order}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Ordered: Jan {order}, 2024
-                        </p>
+                {orders === null ? (
+                  <div className="text-sm text-muted-foreground">
+                    Loading orders...
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="p-6 border rounded text-center text-muted-foreground">
+                    No orders yet.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {orders.map((o: any) => (
+                      <div
+                        key={o.id}
+                        className="flex items-center justify-between p-4 border rounded"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-muted rounded" />
+                          <div>
+                            <p className="font-medium">
+                              Order #{o.code || o.id}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Design: {o.designTitle || "T-shirt"}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Quantity: {o.quantity || 1}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">
+                            {o.total ? `$${o.total}` : "$0.00"}
+                          </p>
+                          <Badge variant="secondary">
+                            {o.status || "Pending"}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold">${order + 19}.99</p>
-                        <Badge
-                          variant={
-                            order % 4 === 0
-                              ? "default"
-                              : order % 4 === 1
-                              ? "secondary"
-                              : order % 4 === 2
-                              ? "destructive"
-                              : "outline"
-                          }
-                        >
-                          {order % 4 === 0
-                            ? "Delivered"
-                            : order % 4 === 1
-                            ? "Shipped"
-                            : order % 4 === 2
-                            ? "Processing"
-                            : "Pending"}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Button size="sm" variant="outline">
-                          Track Order
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          Reorder
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

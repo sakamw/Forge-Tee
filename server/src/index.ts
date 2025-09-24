@@ -4,6 +4,9 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import authRoutes from "./routes/auth.routes";
+import freelancersRoutes from "./routes/freelancers.routes";
+import adminRoutes from "./routes/admin.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
 import errorHandler from "./middlewares/errorHandler";
 
 const app: Express = express();
@@ -24,6 +27,9 @@ app.use(cookieParser());
 app.use(morgan("dev"));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/freelancers", freelancersRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.get("/", (_req: any, res: { send: (arg0: string) => void }) => {
   res.send("<h1>Welcome to CustomTee Platform");

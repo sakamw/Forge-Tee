@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 
 const axiosInstance = axios.create({
   baseURL:
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ((import.meta as any).env?.VITE_API_URL as string) ||
     "http://localhost:4301/api",
   withCredentials: true,
@@ -82,18 +82,137 @@ export async function logoutApi() {
   return res.data as { message: string };
 }
 
+// ---- Freelancer application ----
+export async function applyFreelancerApi(notes?: string) {
+  const res = await axiosInstance.post("/freelancers/apply", { notes });
+  return res.data as { message: string; application?: unknown };
+}
+
+export async function getMyApplicationApi() {
+  const res = await axiosInstance.get("/freelancers/application");
+  return res.data as {
+    status: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+    application?: unknown;
+  };
+}
+
+// ---- Admin: freelancer applications ----
+export async function adminListApplicationsApi(
+  status?: "PENDING" | "APPROVED" | "REJECTED",
+  opts?: { q?: string; page?: number; pageSize?: number; sortBy?: "createdAt" | "status"; sortDir?: "asc" | "desc"; dateFrom?: string; dateTo?: string }
+) {
+  const res = await axiosInstance.get("/admin/freelancers/applications", {
+    params: {
+      ...(status ? { status } : {}),
+      ...(opts?.q ? { q: opts.q } : {}),
+      ...(opts?.page ? { page: opts.page } : {}),
+      ...(opts?.pageSize ? { pageSize: opts.pageSize } : {}),
+      ...(opts?.sortBy ? { sortBy: opts.sortBy } : {}),
+      ...(opts?.sortDir ? { sortDir: opts.sortDir } : {}),
+      ...(opts?.dateFrom ? { dateFrom: opts.dateFrom } : {}),
+      ...(opts?.dateTo ? { dateTo: opts.dateTo } : {}),
+    },
+  });
+  return res.data as { applications: any[]; total: number; page: number; pageSize: number };
+}
+
+export async function adminApproveApplicationApi(applicationId: string) {
+  const res = await axiosInstance.post(
+    `/admin/freelancers/${applicationId}/approve`
+  );
+  return res.data as { message: string };
+}
+
+export async function adminRejectApplicationApi(applicationId: string) {
+  const res = await axiosInstance.post(
+    `/admin/freelancers/${applicationId}/reject`
+  );
+  return res.data as { message: string };
+}
+
+// ---- Dashboard data (basic stubs) ----
+export async function getBuyerOrdersApi() {
+  const res = await axiosInstance.get("/dashboard/buyer/orders");
+  return res.data as { orders: any[] };
+}
+
+export async function getFreelancerPortfolioApi() {
+  const res = await axiosInstance.get("/dashboard/freelancer/portfolio");
+  return res.data as { designs: any[] };
+}
+
+export async function getAdminOverviewApi() {
+  const res = await axiosInstance.get("/dashboard/admin/overview");
+  return res.data as {
+    users: number;
+    freelancers: number;
+    designs: number;
+    orders: number;
+    pendingApprovals: number;
+  };
+}
+
+// ---- Admin: users management ----
+export type AdminUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  role: "BUYER" | "FREELANCER";
+  isAdmin: boolean;
+  verified: boolean;
+  isDeleted: boolean; // true => deactivated
+  dateJoined: string;
+  updatedAt: string;
+};
+
+export async function adminListUsersApi(opts?: {
+  q?: string;
+  role?: "BUYER" | "FREELANCER";
+  admin?: boolean;
+  active?: boolean;
+  page?: number;
+  pageSize?: number;
+  sortBy?: "dateJoined" | "firstName" | "lastName" | "role" | "isAdmin" | "isDeleted";
+  sortDir?: "asc" | "desc";
+}) {
+  const res = await axiosInstance.get("/admin/users", {
+    params: {
+      ...(opts?.q ? { q: opts.q } : {}),
+      ...(opts?.role ? { role: opts.role } : {}),
+      ...(typeof opts?.admin === "boolean" ? { admin: String(opts.admin) } : {}),
+      ...(typeof opts?.active === "boolean" ? { active: String(opts.active) } : {}),
+      ...(opts?.page ? { page: opts.page } : {}),
+      ...(opts?.pageSize ? { pageSize: opts.pageSize } : {}),
+      ...(opts?.sortBy ? { sortBy: opts.sortBy } : {}),
+      ...(opts?.sortDir ? { sortDir: opts.sortDir } : {}),
+    },
+  });
+  return res.data as { users: AdminUser[]; total: number; page: number; pageSize: number };
+}
+
+export async function adminUpdateUserRoleApi(userId: string, role: "BUYER" | "FREELANCER") {
+  const res = await axiosInstance.patch(`/admin/users/${userId}/role`, { role });
+  return res.data as { message: string };
+}
+
+export async function adminSetUserAdminApi(userId: string, isAdmin: boolean) {
+  const res = await axiosInstance.patch(`/admin/users/${userId}/admin`, { isAdmin });
+  return res.data as { message: string };
+}
+
+export async function adminSetUserActiveApi(userId: string, active: boolean) {
+  const res = await axiosInstance.patch(`/admin/users/${userId}/active`, { active });
+  return res.data as { message: string };
+}
+
 // Attach helpers for convenient default import usage in existing code
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (axiosInstance as any).registerApi = registerApi;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (axiosInstance as any).loginApi = loginApi;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (axiosInstance as any).forgotPasswordApi = forgotPasswordApi;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (axiosInstance as any).resetPasswordVerifyApi = resetPasswordVerifyApi;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (axiosInstance as any).resetPasswordApi = resetPasswordApi;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (axiosInstance as any).resendActivationApi = resendActivationApi;
 
 export default axiosInstance;

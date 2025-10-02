@@ -21,7 +21,6 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// ---- Auth API helpers ----
 export type RegisterPayload = {
   firstName: string;
   lastName: string;
@@ -99,7 +98,15 @@ export async function getMyApplicationApi() {
 // ---- Admin: freelancer applications ----
 export async function adminListApplicationsApi(
   status?: "PENDING" | "APPROVED" | "REJECTED",
-  opts?: { q?: string; page?: number; pageSize?: number; sortBy?: "createdAt" | "status"; sortDir?: "asc" | "desc"; dateFrom?: string; dateTo?: string }
+  opts?: {
+    q?: string;
+    page?: number;
+    pageSize?: number;
+    sortBy?: "createdAt" | "status";
+    sortDir?: "asc" | "desc";
+    dateFrom?: string;
+    dateTo?: string;
+  }
 ) {
   const res = await axiosInstance.get("/admin/freelancers/applications", {
     params: {
@@ -113,7 +120,12 @@ export async function adminListApplicationsApi(
       ...(opts?.dateTo ? { dateTo: opts.dateTo } : {}),
     },
   });
-  return res.data as { applications: any[]; total: number; page: number; pageSize: number };
+  return res.data as {
+    applications: any[];
+    total: number;
+    page: number;
+    pageSize: number;
+  };
 }
 
 export async function adminApproveApplicationApi(applicationId: string) {
@@ -174,40 +186,63 @@ export async function adminListUsersApi(opts?: {
   active?: boolean;
   page?: number;
   pageSize?: number;
-  sortBy?: "dateJoined" | "firstName" | "lastName" | "role" | "isAdmin" | "isDeleted";
+  sortBy?:
+    | "dateJoined"
+    | "firstName"
+    | "lastName"
+    | "role"
+    | "isAdmin"
+    | "isDeleted";
   sortDir?: "asc" | "desc";
 }) {
   const res = await axiosInstance.get("/admin/users", {
     params: {
       ...(opts?.q ? { q: opts.q } : {}),
       ...(opts?.role ? { role: opts.role } : {}),
-      ...(typeof opts?.admin === "boolean" ? { admin: String(opts.admin) } : {}),
-      ...(typeof opts?.active === "boolean" ? { active: String(opts.active) } : {}),
+      ...(typeof opts?.admin === "boolean"
+        ? { admin: String(opts.admin) }
+        : {}),
+      ...(typeof opts?.active === "boolean"
+        ? { active: String(opts.active) }
+        : {}),
       ...(opts?.page ? { page: opts.page } : {}),
       ...(opts?.pageSize ? { pageSize: opts.pageSize } : {}),
       ...(opts?.sortBy ? { sortBy: opts.sortBy } : {}),
       ...(opts?.sortDir ? { sortDir: opts.sortDir } : {}),
     },
   });
-  return res.data as { users: AdminUser[]; total: number; page: number; pageSize: number };
+  return res.data as {
+    users: AdminUser[];
+    total: number;
+    page: number;
+    pageSize: number;
+  };
 }
 
-export async function adminUpdateUserRoleApi(userId: string, role: "BUYER" | "FREELANCER") {
-  const res = await axiosInstance.patch(`/admin/users/${userId}/role`, { role });
+export async function adminUpdateUserRoleApi(
+  userId: string,
+  role: "BUYER" | "FREELANCER"
+) {
+  const res = await axiosInstance.patch(`/admin/users/${userId}/role`, {
+    role,
+  });
   return res.data as { message: string };
 }
 
 export async function adminSetUserAdminApi(userId: string, isAdmin: boolean) {
-  const res = await axiosInstance.patch(`/admin/users/${userId}/admin`, { isAdmin });
+  const res = await axiosInstance.patch(`/admin/users/${userId}/admin`, {
+    isAdmin,
+  });
   return res.data as { message: string };
 }
 
 export async function adminSetUserActiveApi(userId: string, active: boolean) {
-  const res = await axiosInstance.patch(`/admin/users/${userId}/active`, { active });
+  const res = await axiosInstance.patch(`/admin/users/${userId}/active`, {
+    active,
+  });
   return res.data as { message: string };
 }
 
-// Attach helpers for convenient default import usage in existing code
 (axiosInstance as any).registerApi = registerApi;
 (axiosInstance as any).loginApi = loginApi;
 (axiosInstance as any).forgotPasswordApi = forgotPasswordApi;

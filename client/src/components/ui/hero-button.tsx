@@ -48,4 +48,5 @@ const HeroButton = React.forwardRef<HTMLButtonElement, HeroButtonProps>(
 );
 HeroButton.displayName = "HeroButton";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { HeroButton, heroButtonVariants };

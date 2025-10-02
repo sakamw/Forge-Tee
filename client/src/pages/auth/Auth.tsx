@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { isAxiosError } from "axios";
@@ -99,9 +100,12 @@ export default function Auth() {
       }
     } else {
       // signup
-      if (!formData.firstName.trim()) newErrors.firstName = "First name is required";
-      if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
-      if (!formData.username.trim()) newErrors.username = "Username is required";
+      if (!formData.firstName.trim())
+        newErrors.firstName = "First name is required";
+      if (!formData.lastName.trim())
+        newErrors.lastName = "Last name is required";
+      if (!formData.username.trim())
+        newErrors.username = "Username is required";
 
       if (!formData.email) {
         newErrors.email = "Email is required";
@@ -152,14 +156,12 @@ export default function Auth() {
         setSuccessMessage(
           "Registration successful! Please check your email to activate your account."
         );
-        // Send user to activation instructions with email in query
         navigate(
           `/activation-instructions?email=${encodeURIComponent(formData.email)}`
         );
         return;
       }
 
-      // Sign in
       const userDetails = await loginApi({
         identifier: formData.identifier,
         password: formData.password,
@@ -167,19 +169,17 @@ export default function Auth() {
 
       setSuccessMessage("Welcome back!");
 
-      // Redirect logic based on server-provided role (not form state)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const isAdmin = (userDetails as any)?.isAdmin === true;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const serverRoleRaw = ((userDetails as any)?.role ?? "").toString().toLowerCase();
+
+      const serverRoleRaw = ((userDetails as any)?.role ?? "")
+        .toString()
+        .toLowerCase();
       const resolvedRole: "buyer" | "freelancer" | "admin" = isAdmin
         ? "admin"
         : serverRoleRaw === "freelancer"
         ? "freelancer"
         : "buyer";
 
-      // Persist auth state for protected routes
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const first = (userDetails as any)?.firstName as string | undefined;
       const last = (userDetails as any)?.lastName as string | undefined;
       const username = (userDetails as any)?.username as string | undefined;
@@ -190,12 +190,13 @@ export default function Auth() {
         email: String((userDetails as any)?.email || formData.identifier || ""),
         role: resolvedRole,
         avatar: (userDetails as any)?.avatar || undefined,
-        createdAt: String((userDetails as any)?.dateJoined || new Date().toISOString()),
+        createdAt: String(
+          (userDetails as any)?.dateJoined || new Date().toISOString()
+        ),
       });
       const displayName = (fullName || username || "there") as string;
       toast.success(`Welcome back, ${displayName}!`);
 
-      // Determine destination based on resolved role; if buyer, check freelancer application state
       let destination = "/user";
       let destLabel = "Buyer dashboard";
       if (resolvedRole === "admin") {
@@ -205,11 +206,12 @@ export default function Auth() {
         destination = "/freelancer";
         destLabel = "Freelancer dashboard";
       } else {
-        // role is BUYER; check if there's a pending freelancer application
         try {
           const app = await getMyApplicationApi();
           if (app.status === "PENDING") {
-            toast.info("Your freelancer application is pending admin approval. You'll be upgraded once approved.");
+            toast.info(
+              "Your freelancer application is pending admin approval. You'll be upgraded once approved."
+            );
           }
         } catch {
           // ignore
@@ -223,14 +225,19 @@ export default function Auth() {
       let friendly = "Something went wrong. Please try again.";
       if (isAxiosError(error)) {
         const status = error.response?.status;
-        const serverMsg = (error.response?.data as { message?: string } | undefined)?.message;
+        const serverMsg = (
+          error.response?.data as { message?: string } | undefined
+        )?.message;
         if (type === "signin") {
           if (status === 0 || !status) {
-            friendly = "Unable to reach the server. Please check your internet connection and try again.";
+            friendly =
+              "Unable to reach the server. Please check your internet connection and try again.";
           } else if (status === 400) {
             friendly = serverMsg || "Invalid email/username or password.";
           } else if (status === 403) {
-            friendly = serverMsg || "Your account is not activated yet. Please check your email for the activation link.";
+            friendly =
+              serverMsg ||
+              "Your account is not activated yet. Please check your email for the activation link.";
           } else if (status && status >= 500) {
             friendly = "Server error. Please try again in a moment.";
           } else {
@@ -239,13 +246,20 @@ export default function Auth() {
         } else {
           // signup
           if (status === 0 || !status) {
-            friendly = "Unable to reach the server. Please check your internet connection and try again.";
+            friendly =
+              "Unable to reach the server. Please check your internet connection and try again.";
           } else if (status === 400) {
-            friendly = serverMsg || "Email or username already in use, or password too weak.";
+            friendly =
+              serverMsg ||
+              "Email or username already in use, or password too weak.";
           } else if (status && status >= 500) {
-            friendly = serverMsg || "Server error during registration. Please try again later.";
+            friendly =
+              serverMsg ||
+              "Server error during registration. Please try again later.";
           } else {
-            friendly = serverMsg || "Registration failed. Please review your details and try again.";
+            friendly =
+              serverMsg ||
+              "Registration failed. Please review your details and try again.";
           }
         }
       } else if (error instanceof Error) {
@@ -391,7 +405,9 @@ export default function Auth() {
                   type="text"
                   placeholder="Enter your email or username"
                   value={formData.identifier}
-                  onChange={(e) => handleInputChange("identifier", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("identifier", e.target.value)
+                  }
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
                     errors.identifier
                       ? "border-red-500"
@@ -488,9 +504,13 @@ export default function Auth() {
                   type="text"
                   placeholder="Enter your first name"
                   value={formData.firstName}
-                  onChange={(e) => handleInputChange("firstName", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("firstName", e.target.value)
+                  }
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
-                    errors.firstName ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                    errors.firstName
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
                   }`}
                   required
                 />
@@ -511,9 +531,13 @@ export default function Auth() {
                   type="text"
                   placeholder="Enter your last name"
                   value={formData.lastName}
-                  onChange={(e) => handleInputChange("lastName", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("lastName", e.target.value)
+                  }
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
-                    errors.lastName ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                    errors.lastName
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
                   }`}
                   required
                 />
@@ -534,9 +558,13 @@ export default function Auth() {
                   type="text"
                   placeholder="Choose a username"
                   value={formData.username}
-                  onChange={(e) => handleInputChange("username", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("username", e.target.value)
+                  }
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white ${
-                    errors.username ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                    errors.username
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
                   }`}
                   required
                 />

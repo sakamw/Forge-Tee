@@ -28,7 +28,7 @@ const ActivateAccount: React.FC = () => {
       .then((res) => {
         if (!res.ok) throw new Error("Activation failed");
         toast.success("Your account has been activated successfully!");
-        navigate("/auth"); // back to login
+        navigate("/auth");
       })
       .catch(() => {
         toast.error("Activation link is invalid or expired.");

@@ -148,6 +148,58 @@ export async function getBuyerOrdersApi() {
   return res.data as { orders: any[] };
 }
 
+export type MarketplaceDesign = {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  price: string;
+  imageUrl?: string | null;
+  category?: string | null;
+  tags: string[];
+  rating: number;
+  reviewCount: number;
+  favoriteCount: number;
+  createdAt: string;
+  designer?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    username: string;
+  } | null;
+};
+
+export type MarketplaceQuery = {
+  q?: string;
+  category?: string;
+  tags?: string[];
+  page?: number;
+  pageSize?: number;
+  sortBy?: "createdAt" | "price" | "rating" | "favorites";
+  sortDir?: "asc" | "desc";
+};
+
+export async function getMarketplaceDesignsApi(query?: MarketplaceQuery) {
+  const res = await axiosInstance.get("/dashboard/buyer/marketplace", {
+    params: {
+      ...(query?.q ? { q: query.q } : {}),
+      ...(query?.category ? { category: query.category } : {}),
+      ...(query?.tags?.length ? { tags: query.tags.join(",") } : {}),
+      ...(query?.page ? { page: query.page } : {}),
+      ...(query?.pageSize ? { pageSize: query.pageSize } : {}),
+      ...(query?.sortBy ? { sortBy: query.sortBy } : {}),
+      ...(query?.sortDir ? { sortDir: query.sortDir } : {}),
+    },
+  });
+  return res.data as {
+    designs: MarketplaceDesign[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+}
+
 export async function getFreelancerPortfolioApi() {
   const res = await axiosInstance.get("/dashboard/freelancer/portfolio");
   return res.data as { designs: any[] };

@@ -24,6 +24,7 @@ model User {
 
   @@map("user")
   FreelancerApplication FreelancerApplication[]
+  designs               Design[]               @relation("DesignerDesigns")
 }
 
 enum Role {
@@ -47,4 +48,27 @@ model FreelancerApplication {
   updatedAt DateTime           @updatedAt
 
   @@map("freelancer_application")
+}
+
+model Design {
+  id            String    @id @default(uuid())
+  title         String
+  slug          String    @unique
+  description   String?
+  price         Decimal   @db.Decimal(10, 2)
+  imageUrl      String?
+  category      String?
+  tags          String[]
+  rating        Float     @default(0)
+  reviewCount   Int       @default(0)
+  favoriteCount Int       @default(0)
+  designer      User?     @relation("DesignerDesigns", fields: [designerId], references: [id])
+  designerId    String?
+  isPublished   Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("design")
+  @@index([category], map: "design_category_idx")
+  @@index([isPublished, createdAt], map: "design_published_created_idx")
 }

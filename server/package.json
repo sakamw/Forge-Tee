@@ -6,6 +6,7 @@
   "scripts": {
     "build": "prisma generate && tsc",
     "prisma:generate": "prisma generate",
+    "db:seed": "ts-node prisma/seed.ts",
     "start:dev": "nodemon  src/index.ts",
     "start:prod": "node dist/index.js"
   },
@@ -23,6 +24,7 @@
     "@types/zxcvbn": "^4.4.5",
     "nodemon": "^3.1.10",
     "prisma": "^6.16.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 import {
   Card,
@@ -17,6 +17,13 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
+import {
   ShoppingBag,
   Heart,
   Search,
@@ -24,16 +31,184 @@ import {
   Star,
   CreditCard,
   User,
+  Loader2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { logoutApi, getBuyerOrdersApi } from "../../api/axios";
+import {
+  logoutApi,
+  getBuyerOrdersApi,
+  getMarketplaceDesignsApi,
+  MarketplaceDesign,
+} from "../../api/axios";
+
+const DEFAULT_MARKETPLACE_PAGE_SIZE = 12;
+
+const MARKETPLACE_CATEGORIES = [
+  "All",
+  "Abstract",
+  "Nature",
+  "Typography",
+  "Illustration",
+  "Photography",
+  "Minimalist",
+  "Vintage",
+  "Pop Culture",
+];
+
+const MARKETPLACE_SORT_OPTIONS: Array<{
+  label: string;
+  sortBy: "createdAt" | "price" | "rating" | "favorites";
+  sortDir: "asc" | "desc";
+}> = [
+  { label: "Newest", sortBy: "createdAt", sortDir: "desc" },
+  { label: "Oldest", sortBy: "createdAt", sortDir: "asc" },
+  { label: "Price: Low to High", sortBy: "price", sortDir: "asc" },
+  { label: "Price: High to Low", sortBy: "price", sortDir: "desc" },
+  { label: "Top Rated", sortBy: "rating", sortDir: "desc" },
+  { label: "Most Favorited", sortBy: "favorites", sortDir: "desc" },
+];
 
 const BuyerDashboard = () => {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("marketplace");
   const [orders, setOrders] = useState<any[] | null>(null);
+  const [marketplaceState, setMarketplaceState] = useState<{
+    designs: MarketplaceDesign[];
+    total: number;
+    totalPages: number;
+    page: number;
+    pageSize: number;
+  }>(() => ({
+    designs: [],
+    total: 0,
+    totalPages: 0,
+    page: 1,
+    pageSize: DEFAULT_MARKETPLACE_PAGE_SIZE,
+  }));
+  const [marketplaceError, setMarketplaceError] = useState<string | null>(null);
+  const [isMarketplaceLoading, setIsMarketplaceLoading] = useState(false);
+  const [isMarketplaceLoadingMore, setIsMarketplaceLoadingMore] =
+    useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<
+    "createdAt" | "price" | "rating" | "favorites"
+  >("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const marketplaceRequestIdRef = useRef(0);
+
+  const sortLabel = useMemo(() => {
+    const match = MARKETPLACE_SORT_OPTIONS.find(
+      (option) => option.sortBy === sortBy && option.sortDir === sortDir
+    );
+    return match?.label ?? MARKETPLACE_SORT_OPTIONS[0]?.label ?? "Newest";
+  }, [sortBy, sortDir]);
+
+  const fetchMarketplacePage = useCallback(
+    async (pageToFetch: number, append = false) => {
+      if (!isAuthenticated || (user && user.role !== "buyer")) {
+        return;
+      }
+
+      const requestId = ++marketplaceRequestIdRef.current;
+
+      if (!append) {
+        setIsMarketplaceLoading(true);
+        setMarketplaceState((prev) => ({
+          ...prev,
+          designs: [],
+          page: pageToFetch,
+        }));
+      } else {
+        setIsMarketplaceLoadingMore(true);
+      }
+
+      setMarketplaceError(null);
+
+      try {
+        const response = await getMarketplaceDesignsApi({
+          q: searchTerm.trim() || undefined,
+          category:
+            selectedCategory === "All" ? undefined : selectedCategory,
+          page: pageToFetch,
+          pageSize: DEFAULT_MARKETPLACE_PAGE_SIZE,
+          sortBy,
+          sortDir,
+        });
+
+        if (requestId !== marketplaceRequestIdRef.current) {
+          return;
+        }
+
+        setMarketplaceState((prev) => ({
+          designs: append
+            ? [...prev.designs, ...response.designs]
+            : response.designs,
+          total: response.total,
+          totalPages: response.totalPages,
+          page: response.page,
+          pageSize: response.pageSize,
+        }));
+        setMarketplaceError(null);
+      } catch (error) {
+        if (requestId !== marketplaceRequestIdRef.current) {
+          return;
+        }
+        console.error("Failed to load marketplace designs", error);
+        setMarketplaceError(
+          "Unable to load marketplace designs. Please try again."
+        );
+      } finally {
+        if (requestId === marketplaceRequestIdRef.current) {
+          if (append) {
+            setIsMarketplaceLoadingMore(false);
+          } else {
+            setIsMarketplaceLoading(false);
+          }
+        }
+      }
+    },
+    [isAuthenticated, user, searchTerm, selectedCategory, sortBy, sortDir]
+  );
+
+  const handleLoadMoreDesigns = useCallback(() => {
+    if (
+      isMarketplaceLoadingMore ||
+      marketplaceState.page >= marketplaceState.totalPages
+    ) {
+      return;
+    }
+
+    fetchMarketplacePage(marketplaceState.page + 1, true);
+  }, [
+    fetchMarketplacePage,
+    isMarketplaceLoadingMore,
+    marketplaceState.page,
+    marketplaceState.totalPages,
+  ]);
+
+  useEffect(() => {
+    if (!isAuthenticated || (user && user.role !== "buyer")) {
+      return;
+    }
+
+    const debounce = setTimeout(() => {
+      fetchMarketplacePage(1, false);
+    }, 300);
+
+    return () => clearTimeout(debounce);
+  }, [fetchMarketplacePage, isAuthenticated, user]);
+
+  const hasMoreMarketplaceDesigns =
+    marketplaceState.page < marketplaceState.totalPages;
+  const showMarketplaceEmptyState =
+    !isMarketplaceLoading &&
+    marketplaceState.designs.length === 0 &&
+    !marketplaceError;
+  const showMarketplaceSkeleton =
+    isMarketplaceLoading && marketplaceState.designs.length === 0;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -115,83 +290,207 @@ const BuyerDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Design Marketplace</CardTitle>
-                <div className="flex gap-4 items-center">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search designs..." className="pl-10" />
+                    <Input
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Search designs or designers..."
+                      className="pl-10"
+                    />
                   </div>
-                  <Button variant="outline">
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filters
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="justify-between min-w-[220px]">
+                        <span className="flex items-center gap-2">
+                          <Filter className="h-4 w-4" />
+                          <span>{sortLabel}</span>
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                      {MARKETPLACE_SORT_OPTIONS.map((option) => {
+                        const isActive =
+                          option.sortBy === sortBy && option.sortDir === sortDir;
+                        return (
+                          <DropdownMenuItem
+                            key={`${option.sortBy}-${option.sortDir}`}
+                            className={isActive ? "text-primary font-medium" : ""}
+                            onSelect={() => {
+                              setSortBy(option.sortBy);
+                              setSortDir(option.sortDir);
+                            }}
+                          >
+                            {option.label}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="mb-6">
                   <h3 className="font-medium mb-3">Categories</h3>
                   <div className="flex flex-wrap gap-2">
-                    {[
-                      "All",
-                      "Abstract",
-                      "Nature",
-                      "Typography",
-                      "Illustration",
-                      "Photography",
-                      "Minimalist",
-                    ].map((category) => (
-                      <Button key={category} variant="outline" size="sm">
-                        {category}
-                      </Button>
-                    ))}
+                    {MARKETPLACE_CATEGORIES.map((category) => {
+                      const isActive = selectedCategory === category;
+                      return (
+                        <Button
+                          key={category}
+                          variant={isActive ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            if (isActive) return;
+                            setSelectedCategory(category);
+                          }}
+                        >
+                          {category}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((design) => (
-                    <div
-                      key={design}
-                      className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
-                    >
-                      <div className="relative">
-                        <div className="w-full h-48 bg-muted flex items-center justify-center">
-                          <span className="text-muted-foreground">
-                            Design {design}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="absolute top-2 right-2 w-8 h-8 p-0"
+                {showMarketplaceSkeleton ? (
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {Array.from({ length: DEFAULT_MARKETPLACE_PAGE_SIZE }).map(
+                      (_item, index) => (
+                        <div
+                          key={`marketplace-skeleton-${index}`}
+                          className="border rounded-lg overflow-hidden animate-pulse"
                         >
-                          <Heart className="h-4 w-4" />
+                          <div className="w-full h-48 bg-muted" />
+                          <div className="p-4 space-y-3">
+                            <div className="h-4 bg-muted rounded" />
+                            <div className="h-3 bg-muted rounded w-2/3" />
+                            <div className="h-3 bg-muted rounded w-1/2" />
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : marketplaceError ? (
+                  <div className="p-6 border rounded text-center">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {marketplaceError}
+                    </p>
+                    <Button onClick={() => fetchMarketplacePage(1, false)}>
+                      Try Again
+                    </Button>
+                  </div>
+                ) : showMarketplaceEmptyState ? (
+                  <div className="p-6 border rounded text-center text-muted-foreground">
+                    No designs found. Try adjusting your filters or search
+                    terms.
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {marketplaceState.designs.map((design) => {
+                        const priceValue = Number(design.price);
+                        const formattedPrice = Number.isFinite(priceValue)
+                          ? `$${priceValue.toFixed(2)}`
+                          : "$0.00";
+                        const designerName = design.designer
+                          ? [design.designer.firstName, design.designer.lastName]
+                              .filter(Boolean)
+                              .join(" ") || design.designer.username
+                          : "Community Designer";
+
+                        return (
+                          <div
+                            key={design.id}
+                            className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+                          >
+                            <div className="relative">
+                              {design.imageUrl ? (
+                                <img
+                                  src={design.imageUrl}
+                                  alt={design.title}
+                                  className="h-48 w-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-48 bg-muted flex items-center justify-center text-center px-6">
+                                  <span className="text-muted-foreground text-sm">
+                                    {design.title}
+                                  </span>
+                                </div>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="absolute top-2 right-2 w-8 h-8 p-0"
+                              >
+                                <Heart className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="p-4 space-y-3">
+                              <div>
+                                <h3 className="font-semibold text-lg">
+                                  {design.title}
+                                </h3>
+                                {design.description && (
+                                  <p className="mt-1 text-sm text-muted-foreground">
+                                    {design.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 text-sm">
+                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                <span>{design.rating.toFixed(1)}</span>
+                                <span className="text-muted-foreground">
+                                  ({design.reviewCount}{" "}
+                                  {design.reviewCount === 1
+                                    ? "review"
+                                    : "reviews"})
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                by {designerName}
+                              </p>
+                              {design.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-1">
+                                  {design.tags.slice(0, 3).map((tag) => (
+                                    <Badge key={tag} variant="outline">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between pt-1">
+                                <span className="font-bold text-base">
+                                  {formattedPrice}
+                                </span>
+                                <Button size="sm">Customize</Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {hasMoreMarketplaceDesigns && (
+                      <div className="flex justify-center mt-8">
+                        <Button
+                          variant="outline"
+                          onClick={handleLoadMoreDesigns}
+                          disabled={isMarketplaceLoadingMore}
+                        >
+                          {isMarketplaceLoadingMore ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            "Load More Designs"
+                          )}
                         </Button>
                       </div>
-                      <div className="p-4">
-                        <h3 className="font-medium mb-1">
-                          Summer Vibes {design}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          by Designer{design}
-                        </p>
-                        <div className="flex items-center gap-1 mb-2">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm">4.{design % 10}</span>
-                          <span className="text-sm text-muted-foreground">
-                            ({design * 3} reviews)
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold">${design + 15}.99</span>
-                          <Button size="sm">Customize</Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex justify-center mt-8">
-                  <Button variant="outline">Load More Designs</Button>
-                </div>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
